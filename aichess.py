@@ -618,13 +618,119 @@ class Aichess():
 
     #---OUR IMPLEMENTATION !---
 
+   
+
+    #auxiliar funcition of minimaxGame, it returns the best value for the current player
+    # returns [value, best next state]
+    #from the white's point of view: white maximizes the value, black minimizes it
+
+    #IMPORTANT!!: here, depth is the number of moves TO reach the state,
+    #not the moves that we have made until now (as in the first practical)
+    def minimax(self, currentState, depth, whitesTurn):
+
+        #if any player ate a king, the game is over
+        if self.getPieceState(currentState, 12) is None: #12:black king
+            return [1000 + depth, None] # + depth because we want to win as fast as possible
+        #being depth the lack of moves to reach this state
+        
+        if self.getPieceState(currentState, 6) is None: #6:white king
+            return [-1000 - depth, None]
+
+        #if I have reached the maximum depth, analize the current state with the heuristic 
+        if depth == 0:
+            return [self.heuristica(currentState, whitesTurn), None]
+
+        # builds a new board simulator with the currentState 
+        #bc the functions getListNextStatesX use the boardSim to get the next states
+        self.newBoardSim(currentState)
+
+        #next states for the current player
+        if whitesTurn:
+            myState = self.getWhiteState(currentState)
+            theirState = self.getBlackState(currentState)
+            nextStates = self.getListNextStatesW(self.getWhiteState(currentState))
+        else:
+            myState = self.getBlackState(currentState)
+            theirState = self.getWhiteState(currentState)
+            nextStates = self.getListNextStatesB(self.getBlackState(currentState))
+
+        #to keep the best value of the best movement found so far
+        #white ones maximizes the value, black minimizes it
+        if whitesTurn:
+            bestValue = -math.inf
+        else:
+            bestValue = math.inf
+
+        bestState = None
+
+        #for each possible next state, we call minimax recursively to get the value of that state
+        for nextState in nextStates:
+            # Si la pieza movida cae sobre una del rival, esta se captura
+            #PASSSSSSSSO PER AQUIIIIIII MIRAR CAP ABAIX !!!
+            fullState = nextState.copy()
+            for piece in theirState:
+                if piece[0:2] != nextState[0][0:2]:
+                    fullState.append(piece)
+
+            value = self.minimax(fullState, depth - 1, not whitesTurn)[0]
+
+            if whitesTurn and value > bestValue:
+                bestValue = value
+                bestState = fullState
+            if not whitesTurn and value < bestValue:
+                bestValue = value
+                bestState = fullState
+
+        return [bestValue, bestState]    
+
+
+
+
+        
+
+
+        return 0
+
     #returns 'W' if the white pieces win, 'B' the other way around, 
     #'none' if there's a tie
-    
     def minimaxGame(self, depthWhite, depthBlack):
         
-        currentState = self.getCurrentState()        
-        # Your code here
+        currentState = self.getCurrentState()
+        whitesTurn = True
+        maxMoves = 100 #so we don't get stuck in an infinite loop, it would be a tie
+
+        for i in range (maxMoves):
+
+            #Check for checkmate
+
+            #whites can't move because they are in checkmate, black wins
+            if whitesTurn and self.isWhiteInCheckMate(currentState):
+                print("Black wins!")
+                return 'B'
+
+            #blacks can't move because they are in checkmate, white wins
+            elif not whitesTurn and self.isBlackInCheckMate(currentState):
+                print("White wins!")
+                return 'W'
+
+
+            #we get the depth of the current player for the minimax call
+            if whitesTurn:
+                depth = depthWhite
+            else:
+                depth = depthBlack
+
+
+            #check for checkmate
+            if self.isBlackInCheckMate(currentState):
+                return 'W'
+            elif self.isWhiteInCheckMate(currentState):
+                return 'B'
+
+            #switch turns
+            whitesTurn = not whitesTurn
+
+
 
 
 
