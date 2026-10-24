@@ -557,7 +557,9 @@ class Aichess():
 
         # If the white king is in check, penalize this state.
         if self.isWatchedWk(currentState):
-            value -= 20
+            value -= 20        
+        
+        
 
         # If the current player is Black, invert the heuristic value.
         if not color:
@@ -616,11 +618,11 @@ class Aichess():
         # Final expected value (weighted average)
         return expected_value / total_weight
 
+
     #---OUR IMPLEMENTATION !---
 
-   
-
     #auxiliar funcition of minimaxGame, it returns the best value for the current player
+
     # returns [value, best next state]
     #from the white's point of view: white maximizes the value, black minimizes it
 
@@ -628,7 +630,7 @@ class Aichess():
     #not the moves that we have made until now (as in the first practical)
     def minimax(self, currentState, depth, whitesTurn):
 
-        #if any player ate a king, the game is over
+        #if any player ate a king in the simulator (illegal but fair in the simulator), the game is over
         if self.getPieceState(currentState, 12) is None: #12:black king
             return [1000 + depth, None] # + depth because we want to win as fast as possible
         #being depth the lack of moves to reach this state
@@ -636,9 +638,16 @@ class Aichess():
         if self.getPieceState(currentState, 6) is None: #6:white king
             return [-1000 - depth, None]
 
-        #if I have reached the maximum depth, analize the current state with the heuristic 
+
+        #if I have reached the maximum depth:
         if depth == 0:
-            return [self.heuristica(currentState, whitesTurn), None]
+            # check the checkmate
+            if whitesTurn and self.isWhiteInCheckMate(currentState):
+                return [-1000, None]
+            if not whitesTurn and self.isBlackInCheckMate(currentState):
+                return [1000, None]
+            #analize the current state with the heuristic
+            return [self.heuristica(currentState, True), None]
 
         # builds a new board simulator with the currentState 
         #bc the functions getListNextStatesX use the boardSim to get the next states
@@ -646,34 +655,43 @@ class Aichess():
 
         #next states for the current player
         if whitesTurn:
-            myState = self.getWhiteState(currentState)
+            #myState = self.getWhiteState(currentState)
             theirState = self.getBlackState(currentState)
             nextStates = self.getListNextStatesW(self.getWhiteState(currentState))
+            bestValue = -math.inf
+
         else:
-            myState = self.getBlackState(currentState)
+            #myState = self.getBlackState(currentState)
             theirState = self.getWhiteState(currentState)
             nextStates = self.getListNextStatesB(self.getBlackState(currentState))
+            bestValue = math.inf    
 
-        #to keep the best value of the best movement found so far
-        #white ones maximizes the value, black minimizes it
-        if whitesTurn:
-            bestValue = -math.inf
-        else:
-            bestValue = math.inf
-
+        #Best state: to keep the best value of the best movement found so far
+        # white ones maximizes the value, black minimizes it
         bestState = None
 
         #for each possible next state, we call minimax recursively to get the value of that state
         for nextState in nextStates:
-            # Si la pieza movida cae sobre una del rival, esta se captura
-            #PASSSSSSSSO PER AQUIIIIIII MIRAR CAP ABAIX !!!
+            # if the moved piece lands on an opponent's piece, it is captured (killed).
+            # we need to remove that piece from the state before passing it to the next minimax call.
             fullState = nextState.copy()
+
+            # Add the opponent's pieces that have not been captured
             for piece in theirState:
                 if piece[0:2] != nextState[0][0:2]:
                     fullState.append(piece)
 
+            #don't permit to eat the rival king (illegal move) 
+            # LEGALLITY FILTER: descart moves that leave my king on scac
+            if whitesTurn and self.isWatchedWk(fullState):
+                continue
+            if not whitesTurn and self.isWatchedBk(fullState):
+                continue
+
+            # call minimax recursively to get the value of the next state
             value = self.minimax(fullState, depth - 1, not whitesTurn)[0]
 
+            #update the best value and best state if the current value is better than the best value found so far
             if whitesTurn and value > bestValue:
                 bestValue = value
                 bestState = fullState
@@ -681,38 +699,50 @@ class Aichess():
                 bestValue = value
                 bestState = fullState
 
+        # no legal move left: checkmate or ties 
+        if bestState is None:
+            if whitesTurn:
+                inCheck = self.isWatchedWk(currentState)
+                return [-1000 - depth, None] if inCheck else [0, None]
+            else:
+                inCheck = self.isWatchedBk(currentState)
+                return [1000 + depth, None] if inCheck else [0, None]
+
         return [bestValue, bestState]    
 
 
 
-
-        
-
-
-        return 0
-
     #returns 'W' if the white pieces win, 'B' the other way around, 
     #'none' if there's a tie
     def minimaxGame(self, depthWhite, depthBlack):
-        
+
+        #getCurrentState returns references to the lists of the real board
         currentState = self.getCurrentState()
         whitesTurn = True
         maxMoves = 100 #so we don't get stuck in an infinite loop, it would be a tie
 
         for i in range (maxMoves):
 
-            #Check for checkmate
-
-            #whites can't move because they are in checkmate, black wins
-            if whitesTurn and self.isWhiteInCheckMate(currentState):
+            # if any king has disappeared in the simulator, the game has ended
+            if self.getPieceState(currentState, 6) is None:
                 print("Black wins!")
                 return 'B'
-
-            #blacks can't move because they are in checkmate, white wins
-            elif not whitesTurn and self.isBlackInCheckMate(currentState):
+            if self.getPieceState(currentState, 12) is None:
                 print("White wins!")
                 return 'W'
 
+            # if we only have the two kings left: no checkmate possible
+            if self.getPieceState(currentState, 2) is None and self.getPieceState(currentState, 8) is None:
+                print("Insufficient material (2kings): ties")
+                return None
+
+            #Check for checkmate BEFORE the move, so the king is never captured in the real game
+            if whitesTurn and self.isWhiteInCheckMate(currentState):
+                print("Black wins!")
+                return 'B'
+            elif not whitesTurn and self.isBlackInCheckMate(currentState):
+                print("White wins!")
+                return 'W'
 
             #we get the depth of the current player for the minimax call
             if whitesTurn:
@@ -721,16 +751,35 @@ class Aichess():
                 depth = depthBlack
 
 
-            #check for checkmate
-            if self.isBlackInCheckMate(currentState):
-                return 'W'
-            elif self.isWhiteInCheckMate(currentState):
-                return 'B'
+            # 1) decision on the board SIMULATION
+            result = self.minimax(currentState, depth, whitesTurn)
+            bestState = result[1]
 
-            #switch turns
+            if bestState is None:
+                if whitesTurn and self.isWhiteInCheckMate(currentState):
+                    print("Black wins!")
+                    return 'B'
+
+                if not whitesTurn and self.isBlackInCheckMate(currentState):
+                    print("White wins!")
+                    return 'W'
+
+                print("No moves, ties")
+                return None
+
+            # 2) move the REAL board with the decision
+            orig, dest = self.getMovement(currentState, bestState)
+            # [0:2] keeps the position of the pieces (row, column), not the piece type
+            self.chess.move(orig[0:2], dest[0:2])
+             
+            # 3) actualize the state and change the turn
+            currentState = self.copyState(bestState)
             whitesTurn = not whitesTurn
 
+        print("Limit of plays: ties")
+        return None
 
+    
 
 
 
@@ -771,5 +820,14 @@ if __name__ == "__main__":
     aichess.chess.boardSim.print_board()
     
     # Run exercise 1
+    #aichess.minimaxGame(4,4)
+
+    # exercise 2
+    #aichess.minimaxGame(3, 3)
+    #aichess.minimaxGame(3, 4)
+    #aichess.minimaxGame(4, 3)
+    #aichess.minimaxGame(4, 4)
+
     aichess.minimaxGame(4,4)
-    # Add code to save results and continue with other exercises
+
+
