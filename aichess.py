@@ -129,6 +129,8 @@ class Aichess():
         self.listNextStates = []
         self.listVisitedStates = []
         self.listVisitedSituations = []
+        # situations (state + turn) already played in the real game, to detect repetitions fast
+        self.setVisitedSituations = set()
         self.pathToTarget = []
         self.depthMax = 8;
         # Dictionary to reconstruct the visited path
@@ -160,6 +162,18 @@ class Aichess():
             return isVisited
         else:
             return False
+
+    #key of a situation: the turn and the pieces (the order of the pieces does not matter)
+    def situationKey(self, state, whitesTurn):
+        return (whitesTurn, frozenset(tuple(piece) for piece in state))
+
+    #saves a situation of the real game
+    def addVisitedSituation(self, state, whitesTurn):
+        self.setVisitedSituations.add(self.situationKey(state, whitesTurn))
+
+    #True if the situation has already been played in the real game (repetition)
+    def isRepeated(self, state, whitesTurn):
+        return self.situationKey(state, whitesTurn) in self.setVisitedSituations
 
     def getListNextStatesW(self, myState):
 
@@ -640,6 +654,11 @@ class Aichess():
         if self.getPieceState(currentState, 6) is None: #6:white king
             return [-1000 - depth, None]
 
+        #if only the two kings are left nobody can win (insufficient material): tie
+        #the game loop already ends here, so the search must value it as a tie (0)
+        if self.getPieceState(currentState, 2) is None and self.getPieceState(currentState, 8) is None:
+            return [0, None]
+
 
         #if I have reached the maximum depth:
         if depth == 0:
@@ -691,7 +710,11 @@ class Aichess():
                 continue
 
             # call minimax recursively to get the value of the next state
-            value = self.minimax(fullState, depth - 1, not whitesTurn)[0]
+            # a situation already played in the real game is a repetition: tie
+            if self.isRepeated(fullState, not whitesTurn):
+                value = 0
+            else:
+                value = self.minimax(fullState, depth - 1, not whitesTurn)[0]
 
             #update the best value and best state if the current value is better than the best value found so far
             if whitesTurn and value > bestValue:
@@ -777,6 +800,7 @@ class Aichess():
             # 3) actualize the state and change the turn
             currentState = self.copyState(bestState)
             whitesTurn = not whitesTurn
+            self.addVisitedSituation(currentState, whitesTurn)
 
         print("Limit of plays: ties")
         return None
@@ -801,6 +825,11 @@ class Aichess():
 
         if self.getPieceState(currentState, 6) is None: #6:white king
             return [-1000 - depth, None]
+
+        #if only the two kings are left nobody can win (insufficient material): tie
+        #the game loop already ends here, so the search must value it as a tie (0)
+        if self.getPieceState(currentState, 2) is None and self.getPieceState(currentState, 8) is None:
+            return [0, None]
 
         #if I have reached the maximum depth:
         if depth == 0:
@@ -846,7 +875,11 @@ class Aichess():
                 continue
 
             # call alphaBeta recursively to get the value of the next state
-            value = self.alphaBeta(fullState, depth - 1, not whitesTurn, alpha, beta)[0]
+            # a situation already played in the real game is a repetition: tie
+            if self.isRepeated(fullState, not whitesTurn):
+                value = 0
+            else:
+                value = self.alphaBeta(fullState, depth - 1, not whitesTurn, alpha, beta)[0]
 
             #update the best value, the best state and the alpha/beta of the current player
             if whitesTurn:
@@ -946,6 +979,7 @@ class Aichess():
             # 3) actualize the state and change the turn
             currentState = self.copyState(bestState)
             whitesTurn = not whitesTurn
+            self.addVisitedSituation(currentState, whitesTurn)
 
         print("Limit of plays: ties")
         return None
@@ -965,6 +999,11 @@ class Aichess():
 
         if self.getPieceState(currentState, 6) is None: #6:white king
             return [-1000 - depth, None]
+
+        #if only the two kings are left nobody can win (insufficient material): tie
+        #the game loop already ends here, so the search must value it as a tie (0)
+        if self.getPieceState(currentState, 2) is None and self.getPieceState(currentState, 8) is None:
+            return [0, None]
 
         #if I have reached the maximum depth:
         if depth == 0:
@@ -1009,7 +1048,11 @@ class Aichess():
                 continue
 
             # call expectimaxValue recursively to get the value of the next state
-            value = self.expectimaxValue(fullState, depth - 1, not whitesTurn)[0]
+            # a situation already played in the real game is a repetition: tie
+            if self.isRepeated(fullState, not whitesTurn):
+                value = 0
+            else:
+                value = self.expectimaxValue(fullState, depth - 1, not whitesTurn)[0]
             values.append(value)
 
             #white (max node): keeps the best value and its state
@@ -1096,6 +1139,7 @@ class Aichess():
             # 3) actualize the state and change the turn
             currentState = self.copyState(bestState)
             whitesTurn = not whitesTurn
+            self.addVisitedSituation(currentState, whitesTurn)
 
         print("Limit of plays: ties")
         return None

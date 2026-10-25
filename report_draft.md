@@ -19,7 +19,61 @@ In all of them the leaves are evaluated with the heuristic provided in the base 
 - `minimax(currentState, depth, whitesTurn)` and `minimaxGame(depthWhite, depthBlack)`
 - `alphaBeta(currentState, depth, whitesTurn, alpha, beta)` and `alphaBetaPoda(depthWhite, depthBlack, whitesAlphaBeta)`
 - `expectimaxValue(currentState, depth, whitesTurn)` and `expectimax(depthWhite, depthBlack)`
-- `simulations.py`: runs the games of each exercise, counts the wins and draws, and plots the results.
+- `playGame`, `playGames`, `exercise2`, `exercise3`, `exercise4` and `exercise5` (also in `aichess.py`): run the games of each exercise, count the wins and draws, and plot the results.
+
+## Implementation decisions
+
+- **Value of a state.** The heuristic is always computed from White's point of view. White maximizes it and Black minimizes it. A checkmate is worth ±1000 (plus the remaining depth, so the faster checkmate is preferred), and a state in which a king has been captured in the simulator is worth the same.
+- **Capturing the king in the simulator.** In `boardSim` the king can be captured, so the search detects that a branch has been won. The real board is only moved in the game loop, right after the decision, so the real game never captures a king.
+- **Legality filter.** The moves that leave one's own king under attack are discarded. Without this filter a player in check could ignore it.
+- **Depth.** `depth` is the number of moves that are still missing to reach the depth we want, not the moves already made (as in the first practical).
+- **Ties.** The game ends in a tie when only the two kings are left (insufficient material), when the player to move has no legal moves and is not in check, or after 100 moves. The search values the state with only the two kings as 0, so the search and the game loop agree.
+- **Repetitions.** A situation (pieces and turn) that has already been played in the real game is valued as a tie (0) inside the search, as in real chess. Without this, the players repeat the same moves until the limit of 100 moves.
+- **Alpha-beta.** `alphaBeta` follows the structure of `minimax`, with `alpha = -inf` and `beta = +inf` at the root, and it stops exploring a state when `alpha >= beta`.
+- **Expectimax.** White's nodes maximize, and Black's nodes are chance nodes whose value is `calculateValue` of the values of the children. In the game, White plays expectimax and Black plays alpha-beta.
+- **Determinism.** None of the algorithms uses random numbers, and the initial position is always the same, so the games of the same combination of depths are identical. We still ran the three games that the assignment asks for.
+
+## Question 1 (minimax vs minimax, depth 4)
+
+**a. How often do whites win?** [RESULT: white wins / black wins / ties over the games run]
+
+**b. Justification.** [Fill in with the result. Points that we have verified:]
+
+- Both players use the same deterministic algorithm, the same heuristic and the same depth, so every game is the same.
+- With a depth of 4 moves both players see the same, so neither of them can force a checkmate: the best defence of Black to the first check (1.Ra8+) is to move the king to [1,6] (g7), protecting its rook. Capturing the rook would be answered by recapturing, and only the two kings would be left, which is a tie.
+- The positions that the heuristic evaluates do not distinguish well those that lead to a checkmate, so the players move the king and the rook around without making progress until the limit of moves is reached.
+
+## Question 2 (minimax vs minimax, depth 3 and 4)
+
+[TABLE: for each pair (white depth, black depth) in {3,4}²: white wins / black wins / ties over 3 games. Figure: `exercise2.png`]
+
+**a.** [Percentage of white wins for each combination.]
+
+**b. Is the result symmetric? Why?** [Fill in with the table. Points: the game is not symmetric because White moves first and because the heuristic is written from White's point of view, but with these depths the four combinations are expected to give the same result: Black sees enough to defend.]
+
+## Question 3 (white minimax, black alpha-beta, depth 4)
+
+[RESULT of the 3 games]
+
+**a. Who is the best in each simulation?** [Fill in with the result.]
+
+**b. Why?** Alpha-beta returns the same decision as minimax at the same depth, because the pruning only discards branches that cannot change the result (we checked that `minimax` and `alphaBeta` return the same value in 12 consecutive positions of a real game, for depths 1 to 3). The difference is only the time: a game with minimax at depth 4 for White took about 45 to 60 minutes on our machines, and alpha-beta takes a fraction of that. [Add the measured times of each algorithm.]
+
+## Question 4 (alpha-beta vs alpha-beta, depths 1 to 5)
+
+[TABLE 5x5 of results and figure `exercise4.png`]
+
+**a.** [Proportion of wins of White and Black.]
+
+**b. Comment on the result.** [Fill in with the table. Expected points: White only wins when Black searches a single move; with depth 2 or more, Black finds the defence (protecting the rook) and the game is a tie; Black does not win with any combination.]
+
+## Question 5 (white expectimax, black alpha-beta)
+
+[RESULT of the 3 games and figure `exercise5.png`]
+
+**a.** [Proportion of wins of White and Black.]
+
+**b. Who wins the most? Why?** [Fill in with the result.] Points that we have verified: expectimax does not assume that Black plays its best move, but a weighted average of all its replies (`calculateValue`). After 1.Ra8+ Kg7, White captures the black rook on h8. Expectimax averages over all the replies of Black, and the replies other than the recapture do not recover the rook, so the average looks good for White [check this with the values of the search before submitting]. But the best reply, recapturing, leaves only the two kings and the game is a tie. Alpha-beta in Black's side does find that reply.
 
 ## Question 6
 
