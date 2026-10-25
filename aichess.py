@@ -5,7 +5,9 @@ Created on Thu Sep  8 11:22:03 2022
 
 @author: ignasi
 """
+import contextlib
 import copy
+import io
 import math
 
 import chess
@@ -783,20 +785,457 @@ class Aichess():
 
 
 
-    def alphaBetaPoda(self, depthWhite, depthBlack):
-        
+    #auxiliar function of alphaBetaPoda, it is the same as minimax but it cuts the branches
+    #that can't change the final decision
+
+    # returns [value, best next state]
+    #from the white's point of view: white maximizes the value, black minimizes it
+
+    #alpha: best value that white (max) can guarantee so far
+    #beta: best value that black (min) can guarantee so far
+    def alphaBeta(self, currentState, depth, whitesTurn, alpha, beta):
+
+        #if any player ate a king in the simulator (illegal but fair in the simulator), the game is over
+        if self.getPieceState(currentState, 12) is None: #12:black king
+            return [1000 + depth, None] # + depth because we want to win as fast as possible
+
+        if self.getPieceState(currentState, 6) is None: #6:white king
+            return [-1000 - depth, None]
+
+        #if I have reached the maximum depth:
+        if depth == 0:
+            # check the checkmate
+            if whitesTurn and self.isWhiteInCheckMate(currentState):
+                return [-1000, None]
+            if not whitesTurn and self.isBlackInCheckMate(currentState):
+                return [1000, None]
+            #analize the current state with the heuristic
+            return [self.heuristica(currentState, True), None]
+
+        # builds a new board simulator with the currentState
+        #bc the functions getListNextStatesX use the boardSim to get the next states
+        self.newBoardSim(currentState)
+
+        #next states for the current player
+        if whitesTurn:
+            theirState = self.getBlackState(currentState)
+            nextStates = self.getListNextStatesW(self.getWhiteState(currentState))
+            bestValue = -math.inf
+
+        else:
+            theirState = self.getWhiteState(currentState)
+            nextStates = self.getListNextStatesB(self.getBlackState(currentState))
+            bestValue = math.inf
+
+        #Best state: to keep the best movement found so far
+        bestState = None
+
+        for nextState in nextStates:
+            # if the moved piece lands on an opponent's piece, it is captured (killed).
+            fullState = nextState.copy()
+
+            # Add the opponent's pieces that have not been captured
+            for piece in theirState:
+                if piece[0:2] != nextState[0][0:2]:
+                    fullState.append(piece)
+
+            # LEGALLITY FILTER: descart moves that leave my king on scac
+            if whitesTurn and self.isWatchedWk(fullState):
+                continue
+            if not whitesTurn and self.isWatchedBk(fullState):
+                continue
+
+            # call alphaBeta recursively to get the value of the next state
+            value = self.alphaBeta(fullState, depth - 1, not whitesTurn, alpha, beta)[0]
+
+            #update the best value, the best state and the alpha/beta of the current player
+            if whitesTurn:
+                if value > bestValue:
+                    bestValue = value
+                    bestState = fullState
+                alpha = max(alpha, bestValue)
+            else:
+                if value < bestValue:
+                    bestValue = value
+                    bestState = fullState
+                beta = min(beta, bestValue)
+
+            #pruning: the other player already has a better option in another branch,
+            #so he will never let us arrive here and we don't need to see the rest of moves
+            if alpha >= beta:
+                break
+
+        # no legal move left: checkmate or ties
+        if bestState is None:
+            if whitesTurn:
+                inCheck = self.isWatchedWk(currentState)
+                return [-1000 - depth, None] if inCheck else [0, None]
+            else:
+                inCheck = self.isWatchedBk(currentState)
+                return [1000 + depth, None] if inCheck else [0, None]
+
+        return [bestValue, bestState]
+
+
+
+    #returns 'W' if the white pieces win, 'B' the other way around,
+    #'none' if there's a tie
+    #whitesAlphaBeta: True if both players use alpha-beta (exercise 4),
+    #False if white plays with minimax and only black uses alpha-beta (exercise 3)
+    def alphaBetaPoda(self, depthWhite, depthBlack, whitesAlphaBeta=True):
+
+        #getCurrentState returns references to the lists of the real board
         currentState = self.getCurrentState()
-        # initialize with the worse possible values 
-        alpha = float('inf')
-        beta = float ('-inf')
+        whitesTurn = True
+        maxMoves = 100 #so we don't get stuck in an infinite loop, it would be a tie
+
+        for i in range (maxMoves):
+
+            # if any king has disappeared in the simulator, the game has ended
+            if self.getPieceState(currentState, 6) is None:
+                print("Black wins!")
+                return 'B'
+            if self.getPieceState(currentState, 12) is None:
+                print("White wins!")
+                return 'W'
+
+            # if we only have the two kings left: no checkmate possible
+            if self.getPieceState(currentState, 2) is None and self.getPieceState(currentState, 8) is None:
+                print("Insufficient material (2kings): ties")
+                return None
+
+            #Check for checkmate BEFORE the move, so the king is never captured in the real game
+            if whitesTurn and self.isWhiteInCheckMate(currentState):
+                print("Black wins!")
+                return 'B'
+            elif not whitesTurn and self.isBlackInCheckMate(currentState):
+                print("White wins!")
+                return 'W'
+
+            #we get the depth of the current player for the alphaBeta call
+            if whitesTurn:
+                depth = depthWhite
+            else:
+                depth = depthBlack
+
+            # 1) decision on the board SIMULATION
+            if whitesTurn and not whitesAlphaBeta:
+                result = self.minimax(currentState, depth, whitesTurn)
+            else:
+                # initialize alpha and beta with the worst possible values for each player
+                result = self.alphaBeta(currentState, depth, whitesTurn, -math.inf, math.inf)
+            bestState = result[1]
+
+            if bestState is None:
+                if whitesTurn and self.isWhiteInCheckMate(currentState):
+                    print("Black wins!")
+                    return 'B'
+
+                if not whitesTurn and self.isBlackInCheckMate(currentState):
+                    print("White wins!")
+                    return 'W'
+
+                print("No moves, ties")
+                return None
+
+            # 2) move the REAL board with the decision
+            orig, dest = self.getMovement(currentState, bestState)
+            # [0:2] keeps the position of the pieces (row, column), not the piece type
+            self.chess.move(orig[0:2], dest[0:2])
+
+            # 3) actualize the state and change the turn
+            currentState = self.copyState(bestState)
+            whitesTurn = not whitesTurn
+
+        print("Limit of plays: ties")
+        return None
 
 
-        
+    #auxiliar function of expectimax, it is the same as minimax but the black nodes
+    #are chance nodes: instead of taking the minimum, we take the expected value
+    #of the children (calculateValue)
+
+    # returns [value, best next state]
+    #from the white's point of view: white maximizes the value, black is an expected value
+    def expectimaxValue(self, currentState, depth, whitesTurn):
+
+        #if any player ate a king in the simulator (illegal but fair in the simulator), the game is over
+        if self.getPieceState(currentState, 12) is None: #12:black king
+            return [1000 + depth, None] # + depth because we want to win as fast as possible
+
+        if self.getPieceState(currentState, 6) is None: #6:white king
+            return [-1000 - depth, None]
+
+        #if I have reached the maximum depth:
+        if depth == 0:
+            # check the checkmate
+            if whitesTurn and self.isWhiteInCheckMate(currentState):
+                return [-1000, None]
+            if not whitesTurn and self.isBlackInCheckMate(currentState):
+                return [1000, None]
+            #analize the current state with the heuristic
+            return [self.heuristica(currentState, True), None]
+
+        # builds a new board simulator with the currentState
+        #bc the functions getListNextStatesX use the boardSim to get the next states
+        self.newBoardSim(currentState)
+
+        #next states for the current player
+        if whitesTurn:
+            theirState = self.getBlackState(currentState)
+            nextStates = self.getListNextStatesW(self.getWhiteState(currentState))
+            bestValue = -math.inf
+        else:
+            theirState = self.getWhiteState(currentState)
+            nextStates = self.getListNextStatesB(self.getBlackState(currentState))
+
+        bestState = None
+        #values of all the legal children, used for the expected value in black nodes
+        values = []
+
+        for nextState in nextStates:
+            # if the moved piece lands on an opponent's piece, it is captured (killed).
+            fullState = nextState.copy()
+
+            # Add the opponent's pieces that have not been captured
+            for piece in theirState:
+                if piece[0:2] != nextState[0][0:2]:
+                    fullState.append(piece)
+
+            # LEGALLITY FILTER: descart moves that leave my king on scac
+            if whitesTurn and self.isWatchedWk(fullState):
+                continue
+            if not whitesTurn and self.isWatchedBk(fullState):
+                continue
+
+            # call expectimaxValue recursively to get the value of the next state
+            value = self.expectimaxValue(fullState, depth - 1, not whitesTurn)[0]
+            values.append(value)
+
+            #white (max node): keeps the best value and its state
+            if whitesTurn and value > bestValue:
+                bestValue = value
+                bestState = fullState
+            #black (chance node): we only need a state to return, the value is the expected one
+            if not whitesTurn and bestState is None:
+                bestState = fullState
+
+        # no legal move left: checkmate or ties
+        if bestState is None:
+            if whitesTurn:
+                inCheck = self.isWatchedWk(currentState)
+                return [-1000 - depth, None] if inCheck else [0, None]
+            else:
+                inCheck = self.isWatchedBk(currentState)
+                return [1000 + depth, None] if inCheck else [0, None]
+
+        if not whitesTurn:
+            bestValue = self.calculateValue(values)
+
+        return [bestValue, bestState]
+
+
+
+    #returns 'W' if the white pieces win, 'B' the other way around,
+    #'none' if there's a tie
+    #white plays expectimax and black plays alpha-beta
     def expectimax(self, depthWhite, depthBlack):
-        
+
+        #getCurrentState returns references to the lists of the real board
         currentState = self.getCurrentState()
-        # Your code here       
-        
+        whitesTurn = True
+        maxMoves = 100 #so we don't get stuck in an infinite loop, it would be a tie
+
+        for i in range (maxMoves):
+
+            # if any king has disappeared in the simulator, the game has ended
+            if self.getPieceState(currentState, 6) is None:
+                print("Black wins!")
+                return 'B'
+            if self.getPieceState(currentState, 12) is None:
+                print("White wins!")
+                return 'W'
+
+            # if we only have the two kings left: no checkmate possible
+            if self.getPieceState(currentState, 2) is None and self.getPieceState(currentState, 8) is None:
+                print("Insufficient material (2kings): ties")
+                return None
+
+            #Check for checkmate BEFORE the move, so the king is never captured in the real game
+            if whitesTurn and self.isWhiteInCheckMate(currentState):
+                print("Black wins!")
+                return 'B'
+            elif not whitesTurn and self.isBlackInCheckMate(currentState):
+                print("White wins!")
+                return 'W'
+
+            # 1) decision on the board SIMULATION
+            if whitesTurn:
+                result = self.expectimaxValue(currentState, depthWhite, whitesTurn)
+            else:
+                result = self.alphaBeta(currentState, depthBlack, whitesTurn, -math.inf, math.inf)
+            bestState = result[1]
+
+            if bestState is None:
+                if whitesTurn and self.isWhiteInCheckMate(currentState):
+                    print("Black wins!")
+                    return 'B'
+
+                if not whitesTurn and self.isBlackInCheckMate(currentState):
+                    print("White wins!")
+                    return 'W'
+
+                print("No moves, ties")
+                return None
+
+            # 2) move the REAL board with the decision
+            orig, dest = self.getMovement(currentState, bestState)
+            # [0:2] keeps the position of the pieces (row, column), not the piece type
+            self.chess.move(orig[0:2], dest[0:2])
+
+            # 3) actualize the state and change the turn
+            currentState = self.copyState(bestState)
+            whitesTurn = not whitesTurn
+
+        print("Limit of plays: ties")
+        return None
+
+
+#---SIMULATIONS OF THE PRACTICAL---
+
+#creates a new game with the initial position of the practical
+#we need a new Aichess for each game, bc the real board is modified when we play
+def newGame():
+    TA = np.zeros((8, 8))
+    TA[7][0] = 2   # white rook
+    TA[7][5] = 6   # white king
+    TA[0][7] = 8   # black rook
+    TA[0][5] = 12  # black king
+    return Aichess(TA, True)
+
+
+#plays one game and returns 'W' if the white pieces win, 'B' the other way around,
+#None if there's a tie
+#game: function that receives the Aichess and returns the result of the game
+#the prints of the simulator are hidden so the terminal is readable
+def playGame(game):
+    ai = newGame()
+    with contextlib.redirect_stdout(io.StringIO()):
+        result = game(ai)
+    return result
+
+
+#plays n games and returns [whiteWins, blackWins, ties]
+def playGames(game, n):
+    whiteWins = 0
+    blackWins = 0
+    ties = 0
+
+    for i in range(n):
+        result = playGame(game)
+        if result == 'W':
+            whiteWins += 1
+        elif result == 'B':
+            blackWins += 1
+        else:
+            ties += 1
+        print("  game", i + 1, "/", n, "->", result)
+
+    return [whiteWins, blackWins, ties]
+
+
+#---EXERCISE 2: minimax vs minimax, depth 3 and 4 for both players---
+
+def exercise2(n=3, depths=(3, 4)):
+    import matplotlib.pyplot as plt
+
+    labels = []
+    percentages = []
+
+    for depthWhite in depths:
+        for depthBlack in depths:
+            print("W:", depthWhite, "B:", depthBlack)
+            wins = playGames(lambda ai: ai.minimaxGame(depthWhite, depthBlack), n)
+            print("  [white wins, black wins, ties] =", wins)
+
+            labels.append("W" + str(depthWhite) + " - B" + str(depthBlack))
+            percentages.append(100 * wins[0] / n)
+
+    # plot the percentage of white wins over the total for each combination of depths
+    plt.figure()
+    plt.bar(labels, percentages)
+    plt.ylim(0, 100)
+    plt.xlabel("Depth (white - black)")
+    plt.ylabel("White wins (%)")
+    plt.title("Exercise 2: minimax vs minimax")
+    plt.savefig("exercise2.png")
+    plt.show()
+
+
+#---EXERCISE 3: white minimax vs black alpha-beta, depth 4---
+
+def exercise3(n=3, depth=4):
+    print("W: minimax", depth, "B: alpha-beta", depth)
+    wins = playGames(lambda ai: ai.alphaBetaPoda(depth, depth, False), n)
+    print("  [white wins, black wins, ties] =", wins)
+
+
+#---EXERCISE 4: alpha-beta vs alpha-beta, depth 1 to 5 for both players---
+
+def exercise4(n=3, depths=(1, 2, 3, 4, 5)):
+    import matplotlib.pyplot as plt
+
+    # proportion of wins for each combination of depths (rows: white, columns: black)
+    whiteProp = np.zeros((len(depths), len(depths)))
+    blackProp = np.zeros((len(depths), len(depths)))
+
+    for i, depthWhite in enumerate(depths):
+        for j, depthBlack in enumerate(depths):
+            print("W:", depthWhite, "B:", depthBlack)
+            wins = playGames(lambda ai: ai.alphaBetaPoda(depthWhite, depthBlack), n)
+            print("  [white wins, black wins, ties] =", wins)
+
+            whiteProp[i][j] = wins[0] / n
+            blackProp[i][j] = wins[1] / n
+
+    # plot the proportion of wins for whites and blacks
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    for ax, prop, title in zip(axes, [whiteProp, blackProp], ["White wins", "Black wins"]):
+        image = ax.imshow(prop, vmin=0, vmax=1, cmap="Blues")
+        ax.set_xticks(range(len(depths)))
+        ax.set_xticklabels(depths)
+        ax.set_yticks(range(len(depths)))
+        ax.set_yticklabels(depths)
+        ax.set_xlabel("Black depth")
+        ax.set_ylabel("White depth")
+        ax.set_title(title + " (proportion)")
+        for i in range(len(depths)):
+            for j in range(len(depths)):
+                ax.text(j, i, round(prop[i][j], 2), ha="center", va="center")
+        fig.colorbar(image, ax=ax)
+    plt.tight_layout()
+    plt.savefig("exercise4.png")
+    plt.show()
+
+
+#---EXERCISE 5: white expectimax vs black alpha-beta---
+
+def exercise5(n=3, depth=3):
+    import matplotlib.pyplot as plt
+
+    print("W: expectimax", depth, "B: alpha-beta", depth)
+    wins = playGames(lambda ai: ai.expectimax(depth, depth), n)
+    print("  [white wins, black wins, ties] =", wins)
+
+    # plot the proportion of wins for whites, blacks and ties
+    plt.figure()
+    plt.bar(["White", "Black", "Tie"], [w / n for w in wins])
+    plt.ylim(0, 1)
+    plt.ylabel("Proportion of games")
+    plt.title("Exercise 5: expectimax (W) vs alpha-beta (B)")
+    plt.savefig("exercise5.png")
+    plt.show()
+
 
 if __name__ == "__main__":
     # if len(sys.argv) < 2:
@@ -827,6 +1266,12 @@ if __name__ == "__main__":
     #aichess.minimaxGame(3, 4)
     #aichess.minimaxGame(4, 3)
     #aichess.minimaxGame(4, 4)
+
+    # simulations of exercises 2 to 5 (n = games per combination)
+    #exercise2(3)
+    #exercise3(3)
+    #exercise4(3)
+    #exercise5(3)
 
     aichess.minimaxGame(4,4)
 
