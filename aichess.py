@@ -828,6 +828,6 @@ if __name__ == "__main__":
     #aichess.minimaxGame(4, 3)
     #aichess.minimaxGame(4, 4)
 
-    aichess.minimaxGame(4,4)
+    aichess.minimaxGame(3,1)
 
 
