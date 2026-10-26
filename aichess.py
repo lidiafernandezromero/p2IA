@@ -1158,7 +1158,8 @@ def newGame():
     return Aichess(TA, True)
 
 
-#plays one game and returns 'W' if the white pieces win, 'B' the other way around,
+# (Idea given by AI, as explained in the inform)
+# plays one game and returns 'W' if the white pieces win, 'B' the other way around,
 #None if there's a tie
 #game: function that receives the Aichess and returns the result of the game
 #the prints of the simulator are hidden so the terminal is readable
