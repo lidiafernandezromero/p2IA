@@ -52,7 +52,7 @@ Results over 3 games per combination (white wins / black wins / ties). Figure: `
 | 3 | 0 / 0 / 3 | 0 / 0 / 3 |
 | 4 | 0 / 0 / 3 | 0 / 0 / 3 |
 
-**a.** The percentage of white wins is 0 % in the four combinations.
+**a.** The percentage of white wins is 0 % in the four combinations: all the games (100 %) are ties, and Black does not win either (the figure shows white wins, black wins and ties).
 
 **b. Is the result symmetric? Why?** The result is the same in the four combinations: all the games are ties. The game is not symmetric in itself (White moves first, and the heuristic is written from White's point of view), but with depth 3 or 4 Black sees enough to find the defence (protecting the rook), so that asymmetry does not show up in the result. It only shows when the two depths are very different (see question 4).
 

@@ -1194,7 +1194,9 @@ def exercise2(n=3, depths=(3, 4)):
     import matplotlib.pyplot as plt
 
     labels = []
-    percentages = []
+    whitePerc = []
+    blackPerc = []
+    tiesPerc = []
 
     for depthWhite in depths:
         for depthBlack in depths:
@@ -1203,16 +1205,22 @@ def exercise2(n=3, depths=(3, 4)):
             print("  [white wins, black wins, ties] =", wins)
 
             labels.append("W" + str(depthWhite) + " - B" + str(depthBlack))
-            percentages.append(100 * wins[0] / n)
+            whitePerc.append(100 * wins[0] / n)
+            blackPerc.append(100 * wins[1] / n)
+            tiesPerc.append(100 * wins[2] / n)
 
-    # plot the percentage of white wins over the total for each combination of depths
+    # plot the percentage of white wins, black wins and ties for each combination of depths
+    # (stacked bars: the three percentages add up to 100)
     plt.figure()
-    plt.bar(labels, percentages)
+    plt.bar(labels, whitePerc, label="White wins")
+    plt.bar(labels, blackPerc, bottom=whitePerc, label="Black wins")
+    plt.bar(labels, tiesPerc, bottom=[w + b for w, b in zip(whitePerc, blackPerc)], label="Ties")
     plt.ylim(0, 100)
     plt.xlabel("Depth (white - black)")
-    plt.ylabel("White wins (%)")
+    plt.ylabel("Games (%)")
+    plt.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
     plt.title("Exercise 2: minimax vs minimax")
-    plt.savefig("exercise2.png")
+    plt.savefig("exercise2.png", bbox_inches="tight")
     plt.show()
 
 
