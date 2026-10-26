@@ -1221,7 +1221,7 @@ def exercise2(n=3, depths=(3, 4)):
     plt.ylabel("Games (%)")
     plt.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
     plt.title("Exercise 2: minimax vs minimax")
-    plt.savefig("exercise2.png", bbox_inches="tight")
+    plt.savefig("results/exercise2.png", bbox_inches="tight")
     plt.show()
 
 
@@ -1267,7 +1267,7 @@ def exercise4(n=3, depths=(1, 2, 3, 4, 5)):
                 ax.text(j, i, round(prop[i][j], 2), ha="center", va="center")
         fig.colorbar(image, ax=ax)
     plt.tight_layout()
-    plt.savefig("exercise4.png")
+    plt.savefig("results/exercise4.png")
     plt.show()
 
 
@@ -1286,7 +1286,7 @@ def exercise5(n=3, depth=3):
     plt.ylim(0, 1)
     plt.ylabel("Proportion of games")
     plt.title("Exercise 5: expectimax (W) vs alpha-beta (B)")
-    plt.savefig("exercise5.png")
+    plt.savefig("results/exercise5.png")
     plt.show()
 
 
