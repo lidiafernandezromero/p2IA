@@ -41,7 +41,7 @@ In all of them the leaves are evaluated with the heuristic provided in the base 
 
 - Both players use the same deterministic algorithm, the same heuristic and the same depth, so every game is the same.
 - With a depth of 4 moves both players see the same, so neither of them can force a checkmate: the best defence of Black to the first check (1.Ra8+) is to move the king to [1,6] (g7), protecting its rook. Capturing the rook would be answered by recapturing, and only the two kings would be left, which is a tie.
-- The heuristic does not distinguish well the positions that lead to a checkmate, so the players do not make progress and the game is a tie. [We have not checked move by move whether these games end by the limit of 100 moves or by insufficient material.]
+- We played one of the games move by move: no piece is captured, and from some point on White moves the rook between [1,0] and [0,0] and Black moves the king between [0,5] and [1,6]. The game ends on the limit of 100 moves, so it is a tie. The heuristic does not distinguish well the positions that lead to a checkmate, so the players do not make progress.
 
 ## Question 2 (minimax vs minimax, depth 3 and 4)
 
@@ -62,7 +62,15 @@ Result of the 3 games: white wins / black wins / ties = 0 / 0 / 3.
 
 **a. Who is the best in each simulation?** Nobody: the three games are ties.
 
-**b. Why?** Alpha-beta returns the same decision as minimax at the same depth, because the pruning only discards branches that cannot change the result (we checked that `minimax` and `alphaBeta` return the same value in 12 consecutive positions of a real game, for depths 1 to 3). Since both players see the same, none of them gets an advantage. The difference is only the time: a game with minimax at depth 4 for White took about 45 to 60 minutes on our machines, and alpha-beta takes a fraction of that. [Add the measured times of each algorithm.]
+**b. Why?** Alpha-beta returns the same decision as minimax at the same depth, because the pruning only discards branches that cannot change the result (we checked that `minimax` and `alphaBeta` return the same value in 12 consecutive positions of a real game, for depths 1 to 3). Since both players see the same, none of them gets an advantage. The difference is only the time. We measured the first decision of White from the initial position (machine with other simulations running at the same time):
+
+| Depth | Minimax | Alpha-beta | Ratio |
+|---|---|---|---|
+| 2 | 0.2 s | 0.1 s | 1.7 |
+| 3 | 2.8 s | 1.2 s | 2.3 |
+| 4 | 40.8 s | 14.8 s | 2.7 |
+
+Both return the same value at every depth (0, 76.1 and 0), and the advantage of alpha-beta grows with the depth. A full game of 100 moves with minimax at depth 4 for White took about 45 to 60 minutes.
 
 ## Question 4 (alpha-beta vs alpha-beta, depths 1 to 5)
 
@@ -83,7 +91,10 @@ Result over 3 games per combination (W = White wins the 3 games, B = Black wins 
 - When Black searches a single move (depth 1), White wins with any depth from 2 to 5: Black does not see the defence (protecting the rook).
 - White with depth 1 does not win and does not lose against any depth.
 - When both players search at least 2 moves, most of the games are ties, which is consistent with the position being even (question 6).
-- The result is not monotonic: a larger depth does not always give a better result. For example, W5-B4 is a tie but W5-B5 is a win for White, and Black wins with depth 2 against White with depth 3. [We have not analysed these games move by move. A likely cause is the horizon effect, together with the fact that the heuristic does not evaluate the positions well when the depth is limited. Check before submitting.]
+- **How Black wins.** We played the three games where Black wins at depth 3-2, 3-5 and 4-5. In all of them Black captures the white rook (on move 22, 22 and 28) and then checkmates with king and rook against a lone king (the game ends on move 36, 34 and 58). White with depth 5 never loses, so the depth that White needs to avoid that loss is greater than 4.
+- **How White wins.** For example, in W5-B1 the white king captures the black rook on move 13 (Black, with depth 1, leaves its rook capturable) and White checkmates on move 33 with king and rook against a lone king.
+- **No progress games.** In the ties with equal depths (for example W4-B4) no piece is captured and the players move the king and the rook between two squares until the limit of 100 moves.
+- The result is not monotonic: a larger depth does not always give a better result. W5-B4 is a tie (no capture in 100 moves), but W5-B5 is a win for White: the white king captures the black rook on move 23 and White checkmates on move 55. Also, White with depth 3 loses against Black with depth 2. In this game a small difference in what each player sees decides whether a rook is lost, and the heuristic does not guide the players towards the checkmate when no piece is captured.
 - Black can win, so White's advantage is not absolute; it depends on the depth of both players.
 
 ## Question 5 (white expectimax, black alpha-beta)
@@ -92,7 +103,14 @@ Result of the 3 games (depth 3 for both): white wins / black wins / ties = 0 / 0
 
 **a.** The proportion of wins is 0 for White, 0 for Black and 1 for ties.
 
-**b. Who wins the most? Why?** Nobody wins. Expectimax does not assume that Black plays its best move, but a weighted average of all its replies (`calculateValue`). After 1.Ra8+ Kg7, White captures the black rook on h8. Expectimax averages over all the replies of Black, and the replies other than the recapture do not recover the rook, so the average looks good for White [check this with the values of the search before submitting]. But the best reply, recapturing, leaves only the two kings and the game is a tie. Alpha-beta on Black's side does find that reply, so White's optimism does not pay off.
+**b. Who wins the most? Why?** Nobody wins: the three games are ties, and they end on move 4, with only the two kings left. Expectimax does not assume that Black plays its best move, but a weighted average of all its replies (`calculateValue`). After 1.Ra8+ Kg7, White can capture the black rook (Rxh8). We computed the values of the search:
+
+| | Minimax | Expectimax |
+|---|---|---|
+| Value of Rxh8 | 0 | 21.6 |
+| Best alternative for White | 20 | 20 |
+
+Black has four replies after Rxh8. Recapturing leaves only the two kings (value 0), and the other three leave White with an extra rook (values from 87 to 97). The average is 21.6, a little higher than the 20 of the best alternative, so expectimax chooses to capture. Minimax assumes the best reply of Black, sees 0 and does not capture. Alpha-beta on Black's side does find the recapture, so White's optimism does not pay off and the game is a tie.
 
 ## Question 6
 
@@ -122,11 +140,18 @@ We used an AI tool (Claude Code, by Anthropic) in this practical, as follows:
 | `minimax` and `minimaxGame` | [__ %] | [e.g. our own implementation / review] |
 | `alphaBeta` and `alphaBetaPoda` | [__ %] | Implementation following the structure of our minimax |
 | `expectimaxValue` and `expectimax` | [__ %] | Implementation following the structure of our minimax |
-| `simulations.py` (games, statistics and plots) | [__ %] | Implementation of the simulation script |
+| Simulation functions in `aichess.py` (`playGames`, `exercise2` to `exercise5`) and the plots | [__ %] | Implementation of the simulations and the plots |
+| Debugging: ties for insufficient material and repetitions in the search | [__ %] | Analysis of games move by move |
 | Report | [__ %] | Reading of the assignment, draft of the introduction and of exercise 6 |
 
 We reviewed and tested the code produced with the AI tool, and we are able to explain it.
 
 ## Conclusions
 
-> To be written once the simulation results are available.
+- We implemented minimax, alpha-beta pruning and expectimax for a game of king and rook against king and rook. Alpha-beta returns the same decisions as minimax and is faster (2.7 times at depth 4 for one decision), and the advantage grows with the depth.
+- Most of the games are ties. When both players see enough, the defence of the rook (keeping it protected by the king) makes a checkmate impossible, which agrees with the position being a theoretical draw.
+- White wins when Black searches only one move, and also in some combinations with more depth (for example, White with depth 5). Black wins when it captures the white rook with a tactic that White does not see at depth 3 or 4. The result depends on the depth of both players and is not monotonic.
+- The simulation and the game loop have to use the same rules. Valuing the position with only the two kings as a tie, and the repetitions of positions as ties, changed the results, because without them the players exchanged the rooks or repeated moves until the limit of 100 moves.
+- Expectimax is not better than alpha-beta in this game: it assumes that the opponent can make mistakes, and the opponent here plays well, so the optimism of White does not pay off.
+- All the algorithms are deterministic, so the three games of every combination are identical. To observe a variation between games, some randomness would be needed (for example, choosing at random among the moves with the same value).
+- The heuristic of the base code, written from White's point of view, does not evaluate well the positions that lead to a checkmate. We did not modify it. A better heuristic is the main improvement that we would make.
