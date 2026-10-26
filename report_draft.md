@@ -35,45 +35,64 @@ In all of them the leaves are evaluated with the heuristic provided in the base 
 
 ## Question 1 (minimax vs minimax, depth 4)
 
-**a. How often do whites win?** [RESULT: white wins / black wins / ties over the games run]
+**a. How often do whites win?** Never. In the 3 games that we ran, with White and Black playing minimax at depth 4, the result was a tie each time (white wins / black wins / ties = 0 / 0 / 3). The three games are identical, because the algorithm is deterministic.
 
-**b. Justification.** [Fill in with the result. Points that we have verified:]
+**b. Justification.**
 
 - Both players use the same deterministic algorithm, the same heuristic and the same depth, so every game is the same.
 - With a depth of 4 moves both players see the same, so neither of them can force a checkmate: the best defence of Black to the first check (1.Ra8+) is to move the king to [1,6] (g7), protecting its rook. Capturing the rook would be answered by recapturing, and only the two kings would be left, which is a tie.
-- The positions that the heuristic evaluates do not distinguish well those that lead to a checkmate, so the players move the king and the rook around without making progress until the limit of moves is reached.
+- The heuristic does not distinguish well the positions that lead to a checkmate, so the players do not make progress and the game is a tie. [We have not checked move by move whether these games end by the limit of 100 moves or by insufficient material.]
 
 ## Question 2 (minimax vs minimax, depth 3 and 4)
 
-[TABLE: for each pair (white depth, black depth) in {3,4}²: white wins / black wins / ties over 3 games. Figure: `exercise2.png`]
+Results over 3 games per combination (white wins / black wins / ties). Figure: `exercise2.png`.
 
-**a.** [Percentage of white wins for each combination.]
+| White depth \ Black depth | 3 | 4 |
+|---|---|---|
+| 3 | 0 / 0 / 3 | 0 / 0 / 3 |
+| 4 | 0 / 0 / 3 | 0 / 0 / 3 |
 
-**b. Is the result symmetric? Why?** [Fill in with the table. Points: the game is not symmetric because White moves first and because the heuristic is written from White's point of view, but with these depths the four combinations are expected to give the same result: Black sees enough to defend.]
+**a.** The percentage of white wins is 0 % in the four combinations.
+
+**b. Is the result symmetric? Why?** The result is the same in the four combinations: all the games are ties. The game is not symmetric in itself (White moves first, and the heuristic is written from White's point of view), but with depth 3 or 4 Black sees enough to find the defence (protecting the rook), so that asymmetry does not show up in the result. It only shows when the two depths are very different (see question 4).
 
 ## Question 3 (white minimax, black alpha-beta, depth 4)
 
-[RESULT of the 3 games]
+Result of the 3 games: white wins / black wins / ties = 0 / 0 / 3.
 
-**a. Who is the best in each simulation?** [Fill in with the result.]
+**a. Who is the best in each simulation?** Nobody: the three games are ties.
 
-**b. Why?** Alpha-beta returns the same decision as minimax at the same depth, because the pruning only discards branches that cannot change the result (we checked that `minimax` and `alphaBeta` return the same value in 12 consecutive positions of a real game, for depths 1 to 3). The difference is only the time: a game with minimax at depth 4 for White took about 45 to 60 minutes on our machines, and alpha-beta takes a fraction of that. [Add the measured times of each algorithm.]
+**b. Why?** Alpha-beta returns the same decision as minimax at the same depth, because the pruning only discards branches that cannot change the result (we checked that `minimax` and `alphaBeta` return the same value in 12 consecutive positions of a real game, for depths 1 to 3). Since both players see the same, none of them gets an advantage. The difference is only the time: a game with minimax at depth 4 for White took about 45 to 60 minutes on our machines, and alpha-beta takes a fraction of that. [Add the measured times of each algorithm.]
 
 ## Question 4 (alpha-beta vs alpha-beta, depths 1 to 5)
 
-[TABLE 5x5 of results and figure `exercise4.png`]
+Result over 3 games per combination (W = White wins the 3 games, B = Black wins the 3 games, t = the 3 games are ties). Figure: `exercise4.png`.
 
-**a.** [Proportion of wins of White and Black.]
+| White depth \ Black depth | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| 1 | t | t | t | t | t |
+| 2 | W | t | t | t | t |
+| 3 | W | B | t | t | B |
+| 4 | W | t | t | t | B |
+| 5 | W | W | W | t | W |
 
-**b. Comment on the result.** [Fill in with the table. Expected points: White only wins when Black searches a single move; with depth 2 or more, Black finds the defence (protecting the rook) and the game is a tie; Black does not win with any combination.]
+**a.** White wins in 7 of the 25 combinations, Black wins in 3 (W3-B2, W3-B5 and W4-B5) and the rest are ties. In every combination the three games have the same result.
+
+**b. Comment on the result.**
+
+- When Black searches a single move (depth 1), White wins with any depth from 2 to 5: Black does not see the defence (protecting the rook).
+- White with depth 1 does not win and does not lose against any depth.
+- When both players search at least 2 moves, most of the games are ties, which is consistent with the position being even (question 6).
+- The result is not monotonic: a larger depth does not always give a better result. For example, W5-B4 is a tie but W5-B5 is a win for White, and Black wins with depth 2 against White with depth 3. [We have not analysed these games move by move. A likely cause is the horizon effect, together with the fact that the heuristic does not evaluate the positions well when the depth is limited. Check before submitting.]
+- Black can win, so White's advantage is not absolute; it depends on the depth of both players.
 
 ## Question 5 (white expectimax, black alpha-beta)
 
-[RESULT of the 3 games and figure `exercise5.png`]
+Result of the 3 games (depth 3 for both): white wins / black wins / ties = 0 / 0 / 3. Figure: `exercise5.png`.
 
-**a.** [Proportion of wins of White and Black.]
+**a.** The proportion of wins is 0 for White, 0 for Black and 1 for ties.
 
-**b. Who wins the most? Why?** [Fill in with the result.] Points that we have verified: expectimax does not assume that Black plays its best move, but a weighted average of all its replies (`calculateValue`). After 1.Ra8+ Kg7, White captures the black rook on h8. Expectimax averages over all the replies of Black, and the replies other than the recapture do not recover the rook, so the average looks good for White [check this with the values of the search before submitting]. But the best reply, recapturing, leaves only the two kings and the game is a tie. Alpha-beta in Black's side does find that reply.
+**b. Who wins the most? Why?** Nobody wins. Expectimax does not assume that Black plays its best move, but a weighted average of all its replies (`calculateValue`). After 1.Ra8+ Kg7, White captures the black rook on h8. Expectimax averages over all the replies of Black, and the replies other than the recapture do not recover the rook, so the average looks good for White [check this with the values of the search before submitting]. But the best reply, recapturing, leaves only the two kings and the game is a tie. Alpha-beta on Black's side does find that reply, so White's optimism does not pay off.
 
 ## Question 6
 
@@ -83,7 +102,7 @@ Not completely. With perfect play from both sides, king and rook against king an
 
 - **White moves first.** It has the tempo, so it can be the first one to attack the opposing rook or to give a check that forces a reply.
 - **The material is not equally safe.** If a rook is exchanged, only the two kings remain and the game is a draw. If a rook is lost without compensation, the other side has king and rook against a lone king, which is a won endgame. A single tactical mistake therefore decides the game.
-- **The evaluation is not symmetric.** The heuristic is computed from White's perspective, and the capture of the black rook is rewarded and the capture of the white one penalized with different terms. This is why in our simulations White wins when Black searches with less depth, but never the other way round.
+- **The evaluation is not symmetric.** The heuristic is computed from White's perspective, and the capture of the black rook is rewarded and the capture of the white one penalized with different terms. This is why in our simulations White wins when Black searches only one move. Black also wins in some combinations of depth (question 4), so the advantage depends on the depths and is not exclusive to White.
 
 **b. What makes this situation of particular interest for the study of adversarial games?**
 
